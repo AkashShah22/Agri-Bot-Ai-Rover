@@ -1,0 +1,23 @@
+# Node Modules (Ignores both root, frontend, and backend)
+node_modules/
+*/node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Local databases & logs
+*.db
+*.db-wal
+*.db-shm
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
+*.log
+
+# Environment & OS files
+.env
+.DS_Store
+.vscode/
