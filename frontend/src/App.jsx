@@ -1,122 +1,94 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { socket } from './services/socket';
+import { fetchLatestTelemetry } from './services/api';
+import Header from './components/Header';
+import MetricCards from './components/MetricCards';
+import FieldGrid from './components/FieldGrid';
+import AdvisoryBox from './components/AdvisoryBox';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [records, setRecords] = useState({});
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [latest, setLatest] = useState({
+    zone: 'A1',
+    soil_moisture: 0,
+    temperature: 0,
+    humidity: 0,
+    battery_level: 100,
+    prediction: 'Healthy',
+    risk_state: 'GREEN',
+    advisory: 'Awaiting initial telemetry sync from rover...'
+  });
+
+  useEffect(() => {
+    // Initial data fetch from Backend API
+    fetchLatestTelemetry().then((data) => {
+      if (data && data.length > 0) {
+        setLatest(data[0]);
+        const map = {};
+        data.forEach((d) => {
+          if (!map[d.zone]) map[d.zone] = d;
+        });
+        setRecords(map);
+      }
+    });
+
+    // Socket Connection handlers
+    socket.on('connect', () => setIsConnected(true));
+    socket.on('disconnect', () => setIsConnected(false));
+
+    // Real-time telemetry receiver
+    socket.on('new_observation', (newData) => {
+      setLatest(newData);
+      setRecords((prev) => ({
+        ...prev,
+        [newData.zone]: newData
+      }));
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('new_observation');
+    };
+  }, []);
+
+  const handleSelectZone = (zone) => {
+    setSelectedZone(zone);
+  };
+
+  const selectedData = selectedZone ? records[selectedZone] : null;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-darkBg text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Top Header */}
+        <Header battery={latest.battery_level} isConnected={isConnected} />
 
-      <div className="ticks"></div>
+        {/* Live Gauges (Moisture, Temp, Humidity) */}
+        <MetricCards data={latest} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        {/* Grid Map + Advisory Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <FieldGrid 
+              records={records} 
+              onSelectZone={handleSelectZone} 
+              selectedZone={selectedZone} 
+            />
+          </div>
+          
+          <div className="lg:col-span-1">
+            <AdvisoryBox 
+              latest={latest} 
+              selectedData={selectedData} 
+            />
+          </div>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      </div>
+    </div>
+  );
 }
-
-export default App

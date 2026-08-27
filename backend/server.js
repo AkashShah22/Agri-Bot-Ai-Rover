@@ -24,8 +24,8 @@ io.on('connection',(socket)=>{
     });
 });
 //now adding routes codes
-const syncRouter=require('../routes/sync')(io);
-const telemetryRouter=require('../routes/telemetry');
+const syncRouter=require('./routes/sync')(io);
+const telemetryRouter=require('./routes/telemetry');
 
 app.use('/api/sync',syncRouter);
 app.use('/api/telemetry',telemetryRouter);

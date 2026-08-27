@@ -1,7 +1,7 @@
 const Database=require('better-sqlite3');
 const path=require('path');
 
-const dbpath=path.resolve(__dirname,'../database/farm.db');
+const dbpath=path.resolve(__dirname,'../data/farm_data.db');
 const db=new Database(dbpath);
 //here i use wal mode to give fatser response
 db.pragma('journal_mode=wal');
