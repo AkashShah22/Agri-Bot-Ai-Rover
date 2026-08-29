@@ -1,18 +1,16 @@
+import { Droplets, Thermometer, Waves } from 'lucide-react';
+
 const metrics = [
-  ['Soil moisture', 'soil_moisture', '%'],
-  ['Temperature', 'temperature', 'C'],
-  ['Humidity', 'humidity', '%'],
+  ['Soil moisture', 'soil_moisture', '%', Droplets, '25-40%'],
+  ['Temperature', 'temperature', '°C', Thermometer, '20-35°C'],
+  ['Humidity', 'humidity', '%', Waves, '40-60%'],
 ];
 
 export default function MetricCards({ data }) {
   return (
-    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Live metrics">
-      {metrics.map(([label, key, unit]) => (
-        <article key={key} className="rounded-lg border border-cardBorder bg-darkCard p-5">
-          <p className="text-sm text-slate-400">{label}</p>
-          <p className="mt-2 text-3xl font-semibold">
-            {data[key]}<span className="ml-1 text-base text-slate-400">{unit}</span>
-          </p>
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {metrics.map(([label, key, unit, Icon, range]) => (
+        <article key={key} className="panel metric-panel"><div className="panel-heading"><Icon size={17} className="text-emerald-300" /><h2>{label}</h2></div><p className="metric-value">{data[key]}<small>{unit}</small></p><p className="text-xs text-slate-500">Optimal range: {range}</p>
         </article>
       ))}
     </section>
