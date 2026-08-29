@@ -1,5 +1,3 @@
-import React from 'react';
-
 // 4x4 Field Grid definition (A1 to D4)
 const GRID_ROWS = ['A', 'B', 'C', 'D'];
 const GRID_COLS = ['1', '2', '3', '4'];
@@ -37,13 +35,13 @@ export default function FieldGrid({ records, onSelectZone, selectedZone }) {
   };
 
   return (
-    <div className="bg-darkCard p-6 rounded-2xl border border-cardBorder shadow-md">
+    <div className="panel map-panel">
       {/* Header & Legend */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
         <div>
           <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <span>🗺️ Field Risk Grid Map</span>
-            <span className="text-xs text-slate-400 font-normal">(4x4 Zone Matrix)</span>
+            <span>Live Field Map</span>
+              <span className="text-xs text-slate-400 font-normal">4x4 zone matrix</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">Click any cell to inspect AI diagnostics & local telemetry</p>
         </div>
@@ -58,14 +56,19 @@ export default function FieldGrid({ records, onSelectZone, selectedZone }) {
       </div>
 
       {/* 4x4 Grid Matrix Container */}
-      <div className="grid grid-cols-4 gap-3.5">
+      <div className="field-map">
+        <div className="map-toolbar"><span>North Field / Sector 01</span><div><button aria-label="Zoom in">+</button><button aria-label="Zoom out">−</button><button aria-label="Locate rover">⌖</button></div></div>
+        <div className="map-boundary">
+        <div className="route completed" /><div className="route planned" /><div className="rover-marker"><span>▲</span></div>
+        <div className="grid grid-cols-4 gap-0">
         {ALL_ZONES.map((zone) => {
           const item = records[zone];
+          const fixedRisk = zone === 'C4' ? 'amber' : zone === 'B3' ? 'red' : '';
           return (
             <button
               key={zone}
               onClick={() => onSelectZone(zone)}
-              className={`h-24 p-3 rounded-xl border flex flex-col justify-between text-left transition-all duration-200 cursor-pointer ${getCellTheme(zone)}`}
+              className={`zone-cell h-24 p-3 border flex flex-col justify-between text-left transition-all duration-200 cursor-pointer ${fixedRisk ? 'fixed-' + fixedRisk : getCellTheme(zone)}`}
             >
               <div className="flex justify-between items-center w-full">
                 <span className="font-extrabold text-sm tracking-wide">{zone}</span>
@@ -74,7 +77,7 @@ export default function FieldGrid({ records, onSelectZone, selectedZone }) {
 
               <div>
                 <p className="text-xs font-semibold truncate">
-                  {item ? item.prediction : 'No Data'}
+                  {fixedRisk === 'amber' ? 'Early Aphid Spread' : fixedRisk === 'red' ? 'Low Soil Moisture' : item ? item.prediction : 'Not scanned'}
                 </p>
                 <p className="text-[11px] opacity-80 mt-0.5">
                   {item ? `Moisture: ${item.soil_moisture}%` : 'Pending survey'}
@@ -84,6 +87,9 @@ export default function FieldGrid({ records, onSelectZone, selectedZone }) {
           );
         })}
       </div>
+        </div>
+        <div className="map-layers"><span>Layers</span><label><input type="checkbox" defaultChecked /> Rover</label><label><input type="checkbox" defaultChecked /> Route</label><label><input type="checkbox" defaultChecked /> Risk Zones</label><label><input type="checkbox" /> Soil Data</label></div>
+    </div>
     </div>
   );
 }

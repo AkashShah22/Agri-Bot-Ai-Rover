@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import CameraScreen from './components/Camerascreen';
+import { useEffect, useState } from 'react';
 import { socket } from './services/socket';
 import { fetchLatestTelemetry } from './services/api';
+
 import Header from './components/Header';
 import MetricCards from './components/MetricCards';
-import FieldGrid from './components/FieldGrid';
 import AdvisoryBox from './components/AdvisoryBox';
 
+import { Activity, ShieldCheck } from 'lucide-react';
+
 export default function App() {
-  const [records, setRecords] = useState({});
-  const [selectedZone, setSelectedZone] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+
   const [latest, setLatest] = useState({
     zone: 'A1',
     soil_moisture: 0,
@@ -18,76 +20,130 @@ export default function App() {
     battery_level: 100,
     prediction: 'Healthy',
     risk_state: 'GREEN',
-    advisory: 'Awaiting initial telemetry sync from rover...'
+    advisory: 'Awaiting telemetry from rover...'
   });
 
   useEffect(() => {
-    // Initial data fetch from Backend API
+    // Get latest data from backend
     fetchLatestTelemetry().then((data) => {
       if (data && data.length > 0) {
         setLatest(data[0]);
-        const map = {};
-        data.forEach((d) => {
-          if (!map[d.zone]) map[d.zone] = d;
-        });
-        setRecords(map);
       }
     });
 
-    // Socket Connection handlers
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
+    // Socket connection
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => setIsConnected(false);
 
-    // Real-time telemetry receiver
-    socket.on('new_observation', (newData) => {
-      setLatest(newData);
-      setRecords((prev) => ({
+    const handleObservation = (newData) => {
+      setLatest((prev) => ({
         ...prev,
-        [newData.zone]: newData
+        ...newData
       }));
-    });
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('new_observation', handleObservation);
 
     return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('new_observation');
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('new_observation', handleObservation);
     };
   }, []);
 
-  const handleSelectZone = (zone) => {
-    setSelectedZone(zone);
-  };
+  const soilStatus =
+    latest.soil_moisture < 30
+      ? 'DRY'
+      : latest.soil_moisture > 60
+      ? 'WET'
+      : 'NORMAL';
 
-  const selectedData = selectedZone ? records[selectedZone] : null;
+  const temperatureStatus = latest.temperature > 35 ? 'HIGH' : 'NORMAL';
+
+  const humidityStatus = latest.humidity > 80 ? 'HIGH' : 'NORMAL';
 
   return (
-    <div className="min-h-screen bg-darkBg text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Top Header */}
+    <div className="min-h-screen bg-[#f5f7f2] text-slate-100 font-sans pb-10">
+      <div className="mx-auto w-full max-w-[1500px] space-y-5 p-4 lg:p-6">
+        {/* HEADER */}
         <Header battery={latest.battery_level} isConnected={isConnected} />
 
-        {/* Live Gauges (Moisture, Temp, Humidity) */}
-        <MetricCards data={latest} />
+        {/* SENSOR METRICS */}
+        <section>
+          <MetricCards data={latest} />
+        </section>
 
-        {/* Grid Map + Advisory Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <FieldGrid 
-              records={records} 
-              onSelectZone={handleSelectZone} 
-              selectedZone={selectedZone} 
-            />
-          </div>
-          
-          <div className="lg:col-span-1">
-            <AdvisoryBox 
-              latest={latest} 
-              selectedData={selectedData} 
-            />
-          </div>
+        {/* MAIN DASHBOARD GRID */}
+<section className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+
+  {/* LEFT COLUMN */}
+  <div className="space-y-4">
+
+    {/* FIELD STATUS */}
+    <section className="panel">
+
+      <div className="panel-heading">
+        <Activity className="text-emerald-500" size={18} />
+        <h2>Field Status</h2>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+        <div className="status-row">
+          <span>Soil Condition</span>
+          <strong className={soilStatus === 'NORMAL' ? 'ok' : 'warning'}>
+            {soilStatus}
+          </strong>
         </div>
 
+        <div className="status-row">
+          <span>Temperature</span>
+          <strong className={temperatureStatus === 'NORMAL' ? 'ok' : 'warning'}>
+            {temperatureStatus}
+          </strong>
+        </div>
+
+        <div className="status-row">
+          <span>Humidity</span>
+          <strong className={humidityStatus === 'NORMAL' ? 'ok' : 'warning'}>
+            {humidityStatus}
+          </strong>
+        </div>
+
+      </div>
+
+      <div className="mt-4 flex items-center gap-2 border-t border-cardBorder pt-4 text-sm text-slate-400">
+
+        <ShieldCheck
+          size={18}
+          className="text-emerald-500"
+        />
+
+        <span>
+          Monitoring field conditions in real time
+        </span>
+
+      </div>
+
+    </section>
+
+
+    {/* CAMERA */}
+    <section>
+    <CameraScreen />
+    </section>
+  </div>
+
+
+  {/* RIGHT COLUMN */}
+  <AdvisoryBox
+    latest={latest}
+    selectedData={null}
+  />
+
+</section>
       </div>
     </div>
   );
