@@ -3,8 +3,10 @@ const http=require('http');
 const {Server}=require('socket.io');
 const cors=require('cors');
 
+
 const app=express();
 const server=http.createServer(app);
+const PORT = process.env.PORT || 5000;
 
 const io=new Server(server,{
     cors:{
@@ -26,11 +28,15 @@ io.on('connection',(socket)=>{
 //now adding routes codes
 const syncRouter=require('./routes/sync')(io);
 const telemetryRouter=require('./routes/telemetry');
+const analyzeRouter = require('./routes/analyze');
+const detectionsRouter = require('./routes/detections');
+
 
 app.use('/api/sync',syncRouter);
 app.use('/api/telemetry',telemetryRouter);
+app.use('/api/analyze', analyzeRouter);
+app.use('/api/detections', detectionsRouter);
 
-const port=5000;
-server.listen(port,()=>{
-    console.log(`backend server is running on http://localhost:${port}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`backend server is running on port ${PORT}`);
 });

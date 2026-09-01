@@ -21,3 +21,8 @@ backend/data/*.db-shm
 .env
 .DS_Store
 .vscode/
+
+# Real-world test images
+tomato_real_world/*.png
+tomato_real_world/*.jpg
+tomato_real_world/*.jpeg
