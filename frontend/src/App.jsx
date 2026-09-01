@@ -6,11 +6,29 @@ import { fetchLatestTelemetry } from './services/api';
 import Header from './components/Header';
 import MetricCards from './components/MetricCards';
 import AdvisoryBox from './components/AdvisoryBox';
+import ZoneMap from './components/ZoneMap';
 
-import { Activity, ShieldCheck } from 'lucide-react';
+import { Activity, ShieldCheck, Radio, MapPin, Battery } from 'lucide-react';
 
 export default function App() {
   const [isConnected, setIsConnected] = useState(false);
+  const [detectionHistory, setDetectionHistory] = useState([]);
+  const [zoneDetections, setZoneDetections] = useState({
+    A1: null,
+    A2: null,
+    A3: null,
+    B1: null,
+    B2: null,
+    B3: null
+  });
+  const [zoneData, setZoneData] = useState({
+    A1: null,
+    A2: null,
+    A3: null,
+    B1: null,
+    B2: null,
+    B3: null
+  });
 
   const [latest, setLatest] = useState({
     zone: 'A1',
@@ -31,6 +49,58 @@ export default function App() {
       }
     });
 
+    fetch('http://10.223.5.115:5000/api/telemetry/records')
+      .then((response) => response.json())
+      .then((result) => {
+        if (result.success) {
+          const zoneMap = {};
+
+          result.data.forEach((item) => {
+            if (!zoneMap[item.zone]) {
+              zoneMap[item.zone] = item;
+            }
+          });
+
+          setZoneData((prev) => ({
+            ...prev,
+            ...zoneMap
+          }));
+        }
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to fetch zone telemetry:',
+          error
+        );
+      });
+
+    fetch('http://10.223.5.115:5000/api/detections')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          setDetectionHistory(data.data);
+
+          const latestByZone = {};
+
+          data.data.forEach((item) => {
+            if (!latestByZone[item.zone]) {
+              latestByZone[item.zone] = item;
+            }
+          });
+
+          setZoneDetections((prev) => ({
+            ...prev,
+            ...latestByZone
+          }));
+        }
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to fetch detections:',
+          error
+        );
+      });
+
     // Socket connection
     const handleConnect = () => setIsConnected(true);
     const handleDisconnect = () => setIsConnected(false);
@@ -40,6 +110,30 @@ export default function App() {
         ...prev,
         ...newData
       }));
+
+      if (newData.zone) {
+        setZoneData((prev) => ({
+          ...prev,
+          [newData.zone]: {
+            ...prev[newData.zone],
+            ...newData
+          }
+        }));
+      }
+
+      fetch('http://10.223.5.115:5000/api/detections')
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            setDetectionHistory(data.data);
+          }
+        })
+        .catch((error) => {
+          console.error(
+            'Failed to refresh detections:',
+            error
+          );
+        });
     };
 
     socket.on('connect', handleConnect);
@@ -52,6 +146,22 @@ export default function App() {
       socket.off('new_observation', handleObservation);
     };
   }, []);
+
+  const handleAIDetection = (result) => {
+    if (!result?.success || !result?.zone) {
+      return;
+    }
+
+    setZoneDetections((prev) => ({
+      ...prev,
+      [result.zone]: result
+    }));
+
+    setDetectionHistory((prev) => [
+      result,
+      ...prev
+    ]);
+  };
 
   const soilStatus =
     latest.soil_moisture < 30
@@ -80,6 +190,70 @@ export default function App() {
 
   {/* LEFT COLUMN */}
   <div className="space-y-4">
+
+
+    {/* ROVER STATUS */}
+<section className="panel">
+
+  <div className="panel-heading">
+    <Radio className="text-emerald-500" size={18} />
+    <h2>Rover Status</h2>
+
+    <span
+      className={`ml-auto rounded-full px-2.5 py-1 text-xs font-semibold ${
+        isConnected
+          ? 'bg-emerald-100 text-emerald-700'
+          : 'bg-red-100 text-red-700'
+      }`}
+    >
+      {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+    </span>
+  </div>
+
+  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+    {/* CURRENT ZONE */}
+    <div className="status-row">
+      <span className="flex items-center gap-2">
+        <MapPin size={15} />
+        Current Zone
+      </span>
+
+      <strong className="ok">
+        {latest.zone}
+      </strong>
+    </div>
+
+    {/* BATTERY */}
+    <div className="status-row">
+      <span className="flex items-center gap-2">
+        <Battery size={15} />
+        Battery
+      </span>
+
+      <strong
+        className={
+          latest.battery_level > 30
+            ? 'ok'
+            : 'warning'
+        }
+      >
+        {latest.battery_level}%
+      </strong>
+    </div>
+
+    {/* MISSION */}
+    <div className="status-row">
+      <span>Mission</span>
+
+      <strong className="ok">
+        ACTIVE
+      </strong>
+    </div>
+
+  </div>
+
+</section>
 
     {/* FIELD STATUS */}
     <section className="panel">
@@ -129,10 +303,19 @@ export default function App() {
 
     </section>
 
+    {/* FIELD ZONE MAP */}
+    <ZoneMap
+      latest={latest}
+      zoneData={zoneData}
+      zoneDetections={zoneDetections}
+    />
 
     {/* CAMERA */}
     <section>
-    <CameraScreen />
+      <CameraScreen
+        currentZone={latest.zone}
+        onAIDetection={handleAIDetection}
+      />
     </section>
   </div>
 
@@ -140,6 +323,7 @@ export default function App() {
   {/* RIGHT COLUMN */}
   <AdvisoryBox
     latest={latest}
+     detectionHistory={detectionHistory}
     selectedData={null}
   />
 

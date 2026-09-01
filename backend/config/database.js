@@ -24,4 +24,24 @@ db.prepare(`
     )
 `).run();
 
+// Create table to store AI disease detections
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS disease_detections(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        zone TEXT NOT NULL DEFAULT 'A1',
+        disease TEXT NOT NULL,
+        confidence REAL NOT NULL,
+        confidence_percent REAL NOT NULL,
+        status TEXT NOT NULL
+    )
+`).run();
+
+const diseaseColumns = db.prepare('PRAGMA table_info(disease_detections)').all();
+const hasZoneColumn = diseaseColumns.some((column) => column.name === 'zone');
+
+if (!hasZoneColumn) {
+    db.prepare('ALTER TABLE disease_detections ADD COLUMN zone TEXT NOT NULL DEFAULT "A1"').run();
+}
+
 module.exports=db;

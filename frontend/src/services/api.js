@@ -1,4 +1,4 @@
-const api_base = "http://localhost:5000/api";
+const api_base = "http://10.223.5.115:5000/api";
 
 export const fetchLatestTelemetry = async () => {
     try {

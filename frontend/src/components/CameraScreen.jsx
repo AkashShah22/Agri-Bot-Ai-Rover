@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, ScanSearch } from 'lucide-react';
 
-export default function CameraScreen() {
+export default function CameraScreen({
+  currentZone = 'A1',
+  onAIDetection
+}) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [error, setError] = useState('');
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [detectionHistory, setDetectionHistory] = useState([]);
 
   // START CAMERA
   const startCamera = async () => {
@@ -73,11 +78,61 @@ export default function CameraScreen() {
   };
 
   // ANALYZE IMAGE
-  const analyzeCrop = () => {
-    if (!capturedImage) return;
+ const analyzeCrop = async () => {
+  if (!capturedImage) return;
 
-    console.log('Crop image ready for AI analysis');
-    console.log(capturedImage);
+  try {
+    // Convert captured image into a file
+    const response = await fetch(capturedImage);
+    const blob = await response.blob();
+
+    // Prepare image for backend
+    const formData = new FormData();
+    formData.append('image', blob, 'crop.jpg');
+    formData.append('zone', currentZone || 'A1');
+
+    // Send image to Node.js backend
+    const result = await fetch('http://10.223.5.115:5000/api/analyze', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await result.json();
+    
+    console.log('Backend response:', data);
+    
+    setAnalysisResult(data);
+
+    if (data.success && onAIDetection) {
+      onAIDetection(data);
+    }
+
+    // Refresh detection history from database
+    fetchDetectionHistory();
+
+  } catch (error) {
+    console.error('Analysis failed:', error);
+  }
+};
+
+  const fetchDetectionHistory = async () => {
+    try {
+      const response = await fetch(
+        'http://10.223.5.115:5000/api/detections'
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDetectionHistory(data.data);
+      }
+
+    } catch (error) {
+      console.error(
+        'Failed to fetch detection history:',
+        error
+      );
+    }
   };
 
   // STOP CAMERA WHEN COMPONENT UNMOUNTS
@@ -90,6 +145,9 @@ export default function CameraScreen() {
       }
     };
   }, []);
+  useEffect(() => {
+  fetchDetectionHistory();
+}, []);
 
   return (
     <section className="panel w-full">
@@ -187,6 +245,73 @@ export default function CameraScreen() {
             <ScanSearch size={16} />
             Analyze Crop
           </button>
+          {analysisResult?.success && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="text-sm font-semibold text-slate-500">
+                AI Crop Analysis
+              </div>
+
+              <div className="mt-1 text-xl font-bold text-slate-800">
+                {analysisResult.disease}
+              </div>
+
+              <div className="mt-1 text-sm text-slate-600">
+                Confidence: {analysisResult.confidence_percent}%
+              </div>
+
+              <div className="mt-2 text-sm font-semibold">
+                Status:{' '}
+                <span
+                  className={
+                    analysisResult.status === 'Detected'
+                      ? 'text-emerald-600'
+                      : 'text-amber-600'
+                  }
+                >
+                  {analysisResult.status}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {detectionHistory.length > 0 && (
+            <div className="mt-6">
+              <div className="text-lg font-bold text-slate-800">
+                Detection History
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {detectionHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-slate-200 bg-white p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-800">
+                          {item.disease}
+                        </div>
+
+                        <div className="mt-1 text-sm text-slate-500">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-semibold text-emerald-600">
+                          {item.confidence_percent}%
+                        </div>
+
+                        <div className="text-xs text-slate-500">
+                          {item.status}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 
